@@ -5,10 +5,10 @@ import {
     signInWithEmailAndPassword,
     createUserWithEmailAndPassword,
     onAuthStateChanged,
-    updateProfile
+    updateProfile,
+    sendPasswordResetEmail // <--- IMPORT THIS
 } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
-// Added Eye and EyeOff imports
 import { Loader2, AlertCircle, User, BookOpen, Heart, Eye, EyeOff } from 'lucide-react';
 import logo from '../assets/logo.svg';
 
@@ -18,10 +18,9 @@ const LoginScreen = () => {
     const [isLogin, setIsLogin] = useState(true);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-
-    // --- NEW: PASSWORD VISIBILITY STATE ---
     const [showPassword, setShowPassword] = useState(false);
 
+    // Sign Up Extra Data
     const [username, setUsername] = useState('');
     const [course, setCourse] = useState('');
     const [hobbies, setHobbies] = useState('');
@@ -29,6 +28,7 @@ const LoginScreen = () => {
     const [loading, setLoading] = useState(false);
     const [authChecking, setAuthChecking] = useState(true);
     const [error, setError] = useState('');
+    const [successMessage, setSuccessMessage] = useState(''); // To show "Email sent"
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -41,9 +41,32 @@ const LoginScreen = () => {
         return () => unsubscribe();
     }, [navigate]);
 
+    // --- FORGOT PASSWORD LOGIC ---
+    const handleResetPassword = async () => {
+        if (!email) {
+            setError("Please enter your email address first.");
+            return;
+        }
+        try {
+            await sendPasswordResetEmail(auth, email);
+            setSuccessMessage("Password reset email sent! Check your inbox.");
+            setError("");
+        } catch (err) {
+            console.error(err);
+            if (err.code === 'auth/user-not-found') {
+                setError("No account found with this email.");
+            } else if (err.code === 'auth/invalid-email') {
+                setError("Invalid email address.");
+            } else {
+                setError("Failed to send reset email. Try again.");
+            }
+        }
+    };
+
     const handleAuth = async (e) => {
         e.preventDefault();
         setError('');
+        setSuccessMessage('');
         setLoading(true);
 
         try {
@@ -104,7 +127,7 @@ const LoginScreen = () => {
                     <img
                         src={logo}
                         alt="CurlyTask Logo"
-                        className="w-16 h-16 mx-auto mb-4 object-contain"
+                        className="w-50 h-50 mx-auto mb-4 object-contain"
                     />
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
                         {isLogin ? 'Welcome Back' : 'Create Account'}
@@ -119,6 +142,14 @@ const LoginScreen = () => {
                     <div className="mb-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-3 rounded-xl flex items-center gap-3">
                         <AlertCircle size={18} className="text-red-600 dark:text-red-400 shrink-0" />
                         <p className="text-sm text-red-600 dark:text-red-400 font-medium">{error}</p>
+                    </div>
+                )}
+
+                {/* Success Message (for password reset) */}
+                {successMessage && (
+                    <div className="mb-6 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 p-3 rounded-xl flex items-center gap-3">
+                        <AlertCircle size={18} className="text-green-600 dark:text-green-400 shrink-0" />
+                        <p className="text-sm text-green-600 dark:text-green-400 font-medium">{successMessage}</p>
                     </div>
                 )}
 
@@ -189,21 +220,18 @@ const LoginScreen = () => {
                         />
                     </div>
 
-                    {/* PASSWORD with TOGGLE */}
+                    {/* PASSWORD */}
                     <div>
                         <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5 ml-1">Password</label>
                         <div className="relative">
                             <input
-                                // 1. Toggle Type based on state
                                 type={showPassword ? "text" : "password"}
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
-                                // 2. Add padding-right (pr-12) so text doesn't go under the icon
                                 className="w-full px-4 py-3 pr-12 rounded-xl bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-teal-500 outline-none transition-all font-medium"
                                 placeholder="••••••••"
                                 required
                             />
-                            {/* 3. The Toggle Button */}
                             <button
                                 type="button"
                                 onClick={() => setShowPassword(!showPassword)}
@@ -213,6 +241,19 @@ const LoginScreen = () => {
                             </button>
                         </div>
                     </div>
+
+                    {/* --- CHANGED: FORGOT PASSWORD BUTTON --- */}
+                    {isLogin && (
+                        <div className="flex justify-end">
+                            <button
+                                type="button"
+                                onClick={handleResetPassword}
+                                className="text-xs font-bold text-teal-600 hover:text-teal-700 hover:underline transition-all"
+                            >
+                                Forgot Password?
+                            </button>
+                        </div>
+                    )}
 
                     <button
                         type="submit"
@@ -237,6 +278,7 @@ const LoginScreen = () => {
                             onClick={() => {
                                 setIsLogin(!isLogin);
                                 setError('');
+                                setSuccessMessage('');
                             }}
                             className="text-teal-600 hover:text-teal-700 font-bold hover:underline transition-all"
                         >
