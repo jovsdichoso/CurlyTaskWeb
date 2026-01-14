@@ -1,27 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { auth, db } from '../firebase'; 
-import { 
-    signInWithEmailAndPassword, 
-    createUserWithEmailAndPassword, 
+import { auth, db } from '../firebase';
+import {
+    signInWithEmailAndPassword,
+    createUserWithEmailAndPassword,
     onAuthStateChanged,
-    updateProfile 
+    updateProfile
 } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore'; 
-import { Loader2, AlertCircle, User, BookOpen, Heart } from 'lucide-react';
-import logo from '../assets/logo.svg'; // <--- IMPORT LOGO
+import { doc, setDoc } from 'firebase/firestore';
+// Added Eye and EyeOff imports
+import { Loader2, AlertCircle, User, BookOpen, Heart, Eye, EyeOff } from 'lucide-react';
+import logo from '../assets/logo.svg';
 
 const LoginScreen = () => {
     const navigate = useNavigate();
 
-    // Toggle between Login and Sign Up
-    const [isLogin, setIsLogin] = useState(true); 
-    
-    // Auth State
+    const [isLogin, setIsLogin] = useState(true);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    
-    // Extra Data for Sign Up
+
+    // --- NEW: PASSWORD VISIBILITY STATE ---
+    const [showPassword, setShowPassword] = useState(false);
+
     const [username, setUsername] = useState('');
     const [course, setCourse] = useState('');
     const [hobbies, setHobbies] = useState('');
@@ -30,7 +30,6 @@ const LoginScreen = () => {
     const [authChecking, setAuthChecking] = useState(true);
     const [error, setError] = useState('');
 
-    // --- REDIRECT IF ALREADY LOGGED IN ---
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
             if (user) {
@@ -49,22 +48,17 @@ const LoginScreen = () => {
 
         try {
             if (isLogin) {
-                // --- LOGIN LOGIC ---
                 await signInWithEmailAndPassword(auth, email, password);
                 navigate('/dashboard');
             } else {
-                // --- SIGN UP LOGIC ---
-                // 1. Create Auth User
                 const userCredential = await createUserWithEmailAndPassword(auth, email, password);
                 const user = userCredential.user;
 
-                // 2. Update Auth Profile (Display Name)
                 await updateProfile(user, {
                     displayName: username,
                     photoURL: "https://ui-avatars.com/api/?background=0D9488&color=fff&name=" + username
                 });
 
-                // 3. Save Custom Data to Firestore
                 await setDoc(doc(db, "users", user.uid), {
                     uid: user.uid,
                     username: username,
@@ -107,12 +101,11 @@ const LoginScreen = () => {
 
                 {/* Header */}
                 <div className="text-center mb-8">
-                    <img 
-                        src={logo} 
-                        alt="CurlyTask Logo" 
-                        className="w-50 h-50 mx-auto mb-4 object-contain" 
+                    <img
+                        src={logo}
+                        alt="CurlyTask Logo"
+                        className="w-16 h-16 mx-auto mb-4 object-contain"
                     />
-                    
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
                         {isLogin ? 'Welcome Back' : 'Create Account'}
                     </h1>
@@ -131,8 +124,8 @@ const LoginScreen = () => {
 
                 {/* Form */}
                 <form onSubmit={handleAuth} className="space-y-4">
-                    
-                    {/* EXTRA FIELDS FOR SIGN UP */}
+
+                    {/* SIGN UP EXTRA FIELDS */}
                     {!isLogin && (
                         <div className="space-y-4 animate-in slide-in-from-top-4 fade-in duration-300">
                             <div>
@@ -149,7 +142,7 @@ const LoginScreen = () => {
                                     />
                                 </div>
                             </div>
-                            
+
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5 ml-1">Course</label>
@@ -183,7 +176,7 @@ const LoginScreen = () => {
                         </div>
                     )}
 
-                    {/* STANDARD FIELDS */}
+                    {/* EMAIL */}
                     <div>
                         <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5 ml-1">Email Address</label>
                         <input
@@ -196,16 +189,29 @@ const LoginScreen = () => {
                         />
                     </div>
 
+                    {/* PASSWORD with TOGGLE */}
                     <div>
                         <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5 ml-1">Password</label>
-                        <input
-                            type="password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            className="w-full px-4 py-3 rounded-xl bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-teal-500 outline-none transition-all font-medium"
-                            placeholder="••••••••"
-                            required
-                        />
+                        <div className="relative">
+                            <input
+                                // 1. Toggle Type based on state
+                                type={showPassword ? "text" : "password"}
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                // 2. Add padding-right (pr-12) so text doesn't go under the icon
+                                className="w-full px-4 py-3 pr-12 rounded-xl bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-teal-500 outline-none transition-all font-medium"
+                                placeholder="••••••••"
+                                required
+                            />
+                            {/* 3. The Toggle Button */}
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:text-zinc-500 dark:hover:text-zinc-300 transition-colors focus:outline-none"
+                            >
+                                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                            </button>
+                        </div>
                     </div>
 
                     <button
@@ -224,7 +230,6 @@ const LoginScreen = () => {
                     </button>
                 </form>
 
-                {/* Toggle Sign In / Sign Up */}
                 <div className="mt-8 text-center">
                     <p className="text-sm text-gray-600 dark:text-zinc-400">
                         {isLogin ? "Don't have an account? " : "Already have an account? "}
