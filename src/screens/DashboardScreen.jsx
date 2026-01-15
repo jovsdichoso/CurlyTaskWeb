@@ -5,21 +5,23 @@ import TaskCard from '../components/TaskCard';
 import AddTaskModal from '../components/AddTaskModal';
 import ViewTaskModal from '../components/ViewTaskModal';
 import DeleteModal from '../components/DeleteModal';
-import ProfileModal from '../components/ProfileModal'; // <--- NEW IMPORT
-import { Plus, Loader2, Menu } from 'lucide-react';
+import ProfileModal from '../components/ProfileModal';
+import CalendarView from '../components/CalendarView';
+import { Plus, Loader2, Menu, LayoutGrid, Calendar } from 'lucide-react';
 
 // Firebase Imports
 import { db } from '../firebase';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
-import { collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy, where } from 'firebase/firestore';
+// 1. ADD 'updateDoc' TO IMPORTS HERE
+import { collection, addDoc, deleteDoc, updateDoc, doc, onSnapshot, query, orderBy, where } from 'firebase/firestore';
 
 const DashboardScreen = () => {
     // --- STATE MANAGEMENT ---
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-    const [isProfileOpen, setIsProfileOpen] = useState(false); // <--- PROFILE STATE
-
+    const [isProfileOpen, setIsProfileOpen] = useState(false);
+    const [viewMode, setViewMode] = useState('grid');
     const [selectedTask, setSelectedTask] = useState(null);
     const [taskToDelete, setTaskToDelete] = useState(null);
     const [isDeleting, setIsDeleting] = useState(false);
@@ -78,13 +80,36 @@ const DashboardScreen = () => {
                 ...taskData,
                 userId: user.uid,
                 createdAt: new Date(),
-                completed: false
+                completed: false,
+                color: 'default' // Initialize with default color
             });
         } catch (error) {
             console.error("Error adding task: ", error);
             alert("Failed to save task.");
         }
     };
+
+    // --- NEW: HANDLE COLOR CHANGE ---
+    const handleColorChange = async (taskId, newColor) => {
+        // 1. Optimistic Update (Update UI instantly before DB responds)
+        setTasks(prevTasks => {
+            const updated = prevTasks.map(t =>
+                t.id === taskId ? { ...t, color: newColor } : t
+            );
+            localStorage.setItem('cached_tasks', JSON.stringify(updated));
+            return updated;
+        });
+
+        // 2. Update Firebase
+        try {
+            const taskRef = doc(db, "tasks", taskId);
+            await updateDoc(taskRef, { color: newColor });
+        } catch (error) {
+            console.error("Error updating color:", error);
+            // Optional: Revert state if it fails
+        }
+    };
+    // --------------------------------
 
     // 3. DELETE LOGIC
     const promptDelete = (id) => {
@@ -128,10 +153,12 @@ const DashboardScreen = () => {
             <Sidebar
                 isOpen={isSidebarOpen}
                 onClose={() => setIsSidebarOpen(false)}
-                onOpenProfile={() => setIsProfileOpen(true)} // <--- PASS HANDLER
+                onOpenProfile={() => setIsProfileOpen(true)}
             />
 
             <main className="flex-1 flex flex-col h-full overflow-hidden relative">
+
+                {/* --- HEADER --- */}
                 <header className="h-16 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between px-4 md:px-8 bg-white/50 dark:bg-zinc-950/50 backdrop-blur-md shrink-0">
                     <div className="flex items-center gap-3">
                         <button
@@ -143,55 +170,92 @@ const DashboardScreen = () => {
                         <h2 className="text-xl font-semibold text-gray-800 dark:text-white">Dashboard</h2>
                     </div>
 
-                    <button
-                        onClick={() => setIsModalOpen(true)}
-                        className="flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white px-3 md:px-4 py-2 rounded-xl text-sm font-bold transition-colors shadow-lg shadow-teal-600/20"
-                    >
-                        <Plus size={18} />
-                        <span className="hidden md:inline">New Task</span>
-                        <span className="md:hidden">New</span>
-                    </button>
+                    <div className="flex items-center gap-3">
+
+                        {/* VIEW TOGGLE BUTTONS */}
+                        <div className="flex bg-gray-100 dark:bg-zinc-900 p-1 rounded-xl">
+                            <button
+                                onClick={() => setViewMode('grid')}
+                                className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white dark:bg-zinc-800 text-teal-600 shadow-sm' : 'text-gray-400 hover:text-gray-600 dark:hover:text-zinc-300'}`}
+                                title="Grid View"
+                            >
+                                <LayoutGrid size={18} />
+                            </button>
+                            <button
+                                onClick={() => setViewMode('calendar')}
+                                className={`p-2 rounded-lg transition-all ${viewMode === 'calendar' ? 'bg-white dark:bg-zinc-800 text-teal-600 shadow-sm' : 'text-gray-400 hover:text-gray-600 dark:hover:text-zinc-300'}`}
+                                title="Calendar View"
+                            >
+                                <Calendar size={18} />
+                            </button>
+                        </div>
+
+                        <button
+                            onClick={() => setIsModalOpen(true)}
+                            className="flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white px-3 md:px-4 py-2 rounded-xl text-sm font-bold transition-colors shadow-lg shadow-teal-600/20"
+                        >
+                            <Plus size={18} />
+                            <span className="hidden md:inline">New Task</span>
+                            <span className="md:hidden">New</span>
+                        </button>
+                    </div>
                 </header>
 
                 <div className="flex-1 overflow-auto p-4 md:p-8 pb-24 md:pb-8">
-                    <div className="mb-6 md:mb-8">
-                        <h1 className="text-2xl md:text-3xl font-extrabold text-gray-900 dark:text-white mb-2">
-                            Hello, {user?.displayName ? user.displayName.split(' ')[0] : "Builder"}.
-                        </h1>
-                        <p className="text-sm md:text-base text-gray-600 dark:text-zinc-400">
-                            You have <span className="font-bold text-teal-600">{tasks.filter(t => !t.completed).length}</span> active tasks.
-                        </p>
-                    </div>
+                    {viewMode === 'grid' && (
+                        <div className="mb-6 md:mb-8">
+                            <h1 className="text-2xl md:text-3xl font-extrabold text-gray-900 dark:text-white mb-2">
+                                Hello, {user?.displayName ? user.displayName.split(' ')[0] : "Builder"}.
+                            </h1>
+                            <p className="text-sm md:text-base text-gray-600 dark:text-zinc-400">
+                                You have <span className="font-bold text-teal-600">{tasks.filter(t => !t.completed).length}</span> active tasks.
+                            </p>
+                        </div>
+                    )}
 
                     {loading ? (
                         <div className="flex justify-center items-center h-64">
                             <Loader2 size={40} className="animate-spin text-teal-600" />
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-                            {tasks.map((task) => (
-                                <TaskCard
-                                    key={task.id}
-                                    task={task}
-                                    onDelete={promptDelete}
-                                    onClick={() => handleOpenTask(task)}
-                                />
-                            ))}
+                        <>
+                            {/* 1. GRID VIEW */}
+                            {viewMode === 'grid' && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+                                    {tasks.map((task) => (
+                                        <TaskCard
+                                            key={task.id}
+                                            task={task}
+                                            onDelete={promptDelete}
+                                            onClick={() => handleOpenTask(task)}
+                                            onColorChange={handleColorChange} // <-- PASS THE FUNCTION HERE
+                                        />
+                                    ))}
 
-                            {tasks.length === 0 && (
-                                <div className="col-span-full flex flex-col items-center justify-center h-64 border-2 border-dashed border-gray-200 dark:border-zinc-800 rounded-3xl bg-gray-50/50 dark:bg-zinc-900/50">
-                                    <div className="w-16 h-16 bg-gray-100 dark:bg-zinc-800 rounded-full flex items-center justify-center mb-4">
-                                        <Plus size={32} className="text-gray-400" />
-                                    </div>
-                                    <p className="text-gray-500 font-medium">No tasks found.</p>
-                                    <p className="text-gray-400 text-sm">Create one to get started!</p>
+                                    {tasks.length === 0 && (
+                                        <div className="col-span-full flex flex-col items-center justify-center h-64 border-2 border-dashed border-gray-200 dark:border-zinc-800 rounded-3xl bg-gray-50/50 dark:bg-zinc-900/50">
+                                            <div className="w-16 h-16 bg-gray-100 dark:bg-zinc-800 rounded-full flex items-center justify-center mb-4">
+                                                <Plus size={32} className="text-gray-400" />
+                                            </div>
+                                            <p className="text-gray-500 font-medium">No tasks found.</p>
+                                            <p className="text-gray-400 text-sm">Create one to get started!</p>
+                                        </div>
+                                    )}
                                 </div>
                             )}
-                        </div>
+
+                            {/* 2. CALENDAR VIEW */}
+                            {viewMode === 'calendar' && (
+                                <div className="h-[calc(100vh-140px)]">
+                                    <CalendarView
+                                        tasks={tasks}
+                                        onTaskClick={handleOpenTask}
+                                    />
+                                </div>
+                            )}
+                        </>
                     )}
                 </div>
-
-                {/* --- MODALS --- */}
 
                 <AddTaskModal
                     isOpen={isModalOpen}
@@ -214,7 +278,6 @@ const DashboardScreen = () => {
                     isDeleting={isDeleting}
                 />
 
-                {/* --- RENDER PROFILE MODAL --- */}
                 <ProfileModal
                     isOpen={isProfileOpen}
                     onClose={() => setIsProfileOpen(false)}
