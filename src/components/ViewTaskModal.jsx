@@ -240,7 +240,13 @@ const ViewTaskModal = ({ isOpen, onClose, task, onUpdate, onDelete }) => {
                                                 <button onClick={handleNextPage} className="p-1 text-gray-500 hover:text-teal-600"><ChevronRight size={16} /></button>
                                             </div>
                                         </div>
-                                        <CanvasNote image={notePages[currentPage]} onSave={handlePageSave} />
+
+                                        {/* FIX IS HERE: key={currentPage} */}
+                                        <CanvasNote
+                                            key={currentPage}
+                                            image={notePages[currentPage]}
+                                            onSave={handlePageSave}
+                                        />
                                     </div>
                                 )}
                             </div>
