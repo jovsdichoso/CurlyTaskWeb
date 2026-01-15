@@ -15,13 +15,13 @@ const ViewTaskModal = ({ isOpen, onClose, task, onUpdate, onDelete }) => {
 
     const [activeTab, setActiveTab] = useState('details');
 
-    // --- NEW: MODE TOGGLE ---
-    const [isStudyMode, setIsStudyMode] = useState(false); // Default to FALSE (Preview only)
+    // --- MODE TOGGLE ---
+    const [isStudyMode, setIsStudyMode] = useState(false);
     const [viewMode, setViewMode] = useState('notes');
     const [isSplitView, setIsSplitView] = useState(false);
 
     const [title, setTitle] = useState(task.title);
-    const [description, setDescription] = useState(task.description); // Text Description
+    const [description, setDescription] = useState(task.description);
     const [checklist, setChecklist] = useState(task.checklist || []);
     const [newItem, setNewItem] = useState("");
     const [isEditing, setIsEditing] = useState(false);
@@ -42,7 +42,7 @@ const ViewTaskModal = ({ isOpen, onClose, task, onUpdate, onDelete }) => {
         setActiveTab('details');
 
         // Reset Modes
-        setIsStudyMode(false); // Always start in "Preview" mode
+        setIsStudyMode(false);
         setViewMode('notes');
         setIsSplitView(false);
 
@@ -68,7 +68,7 @@ const ViewTaskModal = ({ isOpen, onClose, task, onUpdate, onDelete }) => {
         }
     }, [task]);
 
-    // Canvas Handlers
+    // ... (Keep your existing Handlers: handlePageSave, handleNextPage, etc.) ...
     const handlePageSave = (dataUrl) => {
         const updatedPages = [...notePages];
         updatedPages[currentPage] = dataUrl;
@@ -88,12 +88,7 @@ const ViewTaskModal = ({ isOpen, onClose, task, onUpdate, onDelete }) => {
     const handleSaveChanges = async () => {
         setLoading(true);
         try {
-            const updates = {
-                title,
-                description, // Save text description
-                checklist,
-                notePages // Save canvas pages
-            };
+            const updates = { title, description, checklist, notePages };
             await updateDoc(doc(db, "tasks", task.id), updates);
             onUpdate({ ...task, ...updates });
             setIsEditing(false);
@@ -124,6 +119,7 @@ const ViewTaskModal = ({ isOpen, onClose, task, onUpdate, onDelete }) => {
     };
 
     const handleDelete = () => onDelete(task.id);
+    // ... (End of Handlers) ...
 
     const getCatColor = (c) => {
         switch (c) {
@@ -142,48 +138,28 @@ const ViewTaskModal = ({ isOpen, onClose, task, onUpdate, onDelete }) => {
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-in fade-in duration-200">
-            {/* Modal Container */}
             <div className="bg-white dark:bg-zinc-950 w-full max-w-[95vw] h-[95vh] rounded-[24px] shadow-2xl border border-gray-100 dark:border-zinc-800 flex flex-col overflow-hidden transition-all duration-300">
 
-                {/* --- 1. HEADER --- */}
+                {/* --- HEADER (Same as before) --- */}
                 <div className="px-6 py-4 border-b border-gray-100 dark:border-zinc-800 flex items-center justify-between bg-white dark:bg-zinc-950 shrink-0 z-10">
                     <div className="flex items-center gap-4 flex-1">
                         <div className="w-10 h-10 rounded-xl bg-gray-50 dark:bg-zinc-900 flex items-center justify-center border border-gray-100 dark:border-zinc-800 shrink-0 shadow-sm">
                             {renderIcon()}
                         </div>
                         <div className="flex-1 min-w-0">
-                            <input
-                                type="text"
-                                value={title}
-                                onChange={(e) => { setTitle(e.target.value); setIsEditing(true); }}
-                                className="w-full text-lg font-bold bg-transparent border-none outline-none text-gray-900 dark:text-white placeholder-gray-400 p-0 focus:ring-0 truncate"
-                                placeholder="Task Title"
-                            />
+                            <input type="text" value={title} onChange={(e) => { setTitle(e.target.value); setIsEditing(true); }} className="w-full text-lg font-bold bg-transparent border-none outline-none text-gray-900 dark:text-white placeholder-gray-400 p-0 focus:ring-0 truncate" placeholder="Task Title" />
                             <div className="flex items-center gap-2 mt-1">
-                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border uppercase tracking-wide ${getCatColor(task.category)}`}>
-                                    {task.category}
-                                </span>
-                                <span className="flex items-center gap-1 text-[10px] font-mono text-gray-400 dark:text-zinc-600 px-1">
-                                    <Hash size={10} /> {task.id.slice(0, 6).toUpperCase()}
-                                </span>
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border uppercase tracking-wide ${getCatColor(task.category)}`}>{task.category}</span>
+                                <span className="flex items-center gap-1 text-[10px] font-mono text-gray-400 dark:text-zinc-600 px-1"><Hash size={10} /> {task.id.slice(0, 6).toUpperCase()}</span>
                             </div>
                         </div>
                     </div>
 
-                    {/* STUDY MODE TOGGLE (Key Feature) */}
-                    <button
-                        onClick={() => setIsStudyMode(!isStudyMode)}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all duration-300 mr-2
-                            ${isStudyMode
-                                ? 'bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-900/30 dark:border-indigo-800 dark:text-indigo-300'
-                                : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100 dark:bg-zinc-900 dark:border-zinc-800 dark:text-zinc-400'
-                            }`}
-                    >
+                    <button onClick={() => setIsStudyMode(!isStudyMode)} className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all duration-300 mr-2 ${isStudyMode ? 'bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-900/30 dark:border-indigo-800 dark:text-indigo-300' : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100 dark:bg-zinc-900 dark:border-zinc-800 dark:text-zinc-400'}`}>
                         {isStudyMode ? <ToggleRight size={20} className="text-indigo-600 dark:text-indigo-400" /> : <ToggleLeft size={20} />}
-                        <span className="text-xs font-bold">{isStudyMode ? 'Study Mode ON' : 'Preview Mode'}</span>
+                        <span className="text-xs font-bold hidden sm:inline">{isStudyMode ? 'Study Mode' : 'Preview'}</span>
                     </button>
 
-                    {/* Additional View Controls (Only visible in Study Mode) */}
                     {isStudyMode && hasPdf && (
                         <div className="flex items-center gap-2 border-l border-gray-200 dark:border-zinc-800 pl-4">
                             <button onClick={() => setIsSplitView(!isSplitView)} className={`p-2 rounded-xl border transition-all ${isSplitView ? 'bg-teal-50 border-teal-200 text-teal-600' : 'bg-white border-gray-200 text-gray-400'}`}>
@@ -192,20 +168,13 @@ const ViewTaskModal = ({ isOpen, onClose, task, onUpdate, onDelete }) => {
                         </div>
                     )}
 
-                    {/* ACTIONS */}
                     <div className="flex items-center gap-2 pl-4">
-                        {isEditing && (
-                            <button onClick={handleSaveChanges} disabled={loading} className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-lg shadow-lg flex items-center gap-1.5 transition-all">
-                                {loading ? "Saving..." : <><Save size={14} /> Save</>}
-                            </button>
-                        )}
-                        <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors">
-                            <X size={20} />
-                        </button>
+                        {isEditing && (<button onClick={handleSaveChanges} disabled={loading} className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-lg shadow-lg flex items-center gap-1.5 transition-all">{loading ? "Saving..." : <><Save size={14} /> Save</>}</button>)}
+                        <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"><X size={20} /></button>
                     </div>
                 </div>
 
-                {/* --- 2. TABS --- */}
+                {/* --- TABS --- */}
                 {quizQuestions.length > 0 && (
                     <div className="px-6 border-b border-gray-100 dark:border-zinc-800 flex gap-6 shrink-0 bg-gray-50/50 dark:bg-zinc-900/50">
                         <button onClick={() => setActiveTab('details')} className={`py-2.5 text-xs font-bold border-b-2 transition-all ${activeTab === 'details' ? 'text-teal-600 border-teal-600' : 'text-gray-500 border-transparent hover:text-gray-800'}`}>Task Details</button>
@@ -213,27 +182,33 @@ const ViewTaskModal = ({ isOpen, onClose, task, onUpdate, onDelete }) => {
                     </div>
                 )}
 
-                {/* --- 3. CONTENT AREA --- */}
+                {/* --- MAIN CONTENT AREA --- */}
                 <div className="flex-1 overflow-hidden bg-white dark:bg-zinc-950 relative flex flex-col">
-
                     {activeTab === 'quiz' ? (
                         <div className="h-full overflow-y-auto p-6"><QuizComponent task={task} questions={quizQuestions} onUpdate={onUpdate} /></div>
                     ) : (
-                        // IF STUDY MODE IS ON -> SHOW COMPLEX CANVAS/PDF
                         isStudyMode ? (
-                            <div className="flex-1 relative w-full h-full flex flex-row">
-                                {/* PDF SECTION - UPDATED FOR IPAD SCROLLING */}
+                            // --- RESPONSIVE CONTAINER ---
+                            // flex-col for Mobile (Stacked), lg:flex-row for Desktop (Side-by-side)
+                            <div className={`flex-1 relative w-full h-full flex ${isSplitView ? 'flex-col lg:flex-row' : 'flex-col'}`}>
+
+                                {/* PDF SECTION */}
                                 {hasPdf && (viewMode === 'pdf' || isSplitView) && (
                                     <div
-                                        className={`flex-1 bg-gray-100 dark:bg-zinc-900 relative border-r border-gray-200 dark:border-zinc-800 overflow-y-auto touch-auto ${isSplitView ? 'w-full lg:w-1/2' : 'w-full'}`}
-                                        style={{ WebkitOverflowScrolling: 'touch' }} // iOS smooth scroll fix
+                                        className={`
+                                            bg-gray-100 dark:bg-zinc-900 relative border-r border-gray-200 dark:border-zinc-800 
+                                            overflow-y-auto touch-auto
+                                            ${isSplitView ? 'w-full lg:w-1/2 h-1/2 lg:h-full' : 'w-full h-full'}
+                                        `}
+                                        style={{ WebkitOverflowScrolling: 'touch' }}
                                     >
                                         <div className="absolute top-4 right-4 z-10"><a href={task.pdfUrl} target="_blank" rel="noreferrer" className="bg-white dark:bg-black p-2 rounded-lg shadow-md text-gray-500 hover:text-teal-600 transition-colors block"><ExternalLink size={16} /></a></div>
 
-                                        {/* Added wrapping div and updated iframe props */}
+                                        {/* WRAPPER FOR IFRAME SCROLLING */}
                                         <div className="w-full h-full min-h-0 overflow-auto">
                                             <iframe
-                                                src={`${task.pdfUrl}#toolbar=0`}
+                                                // ADDED: view=FitH to try and fit PDF width to screen
+                                                src={`${task.pdfUrl}#toolbar=0&view=FitH`}
                                                 className="w-full h-full border-none"
                                                 title="PDF Preview"
                                                 scrolling="yes"
@@ -242,9 +217,14 @@ const ViewTaskModal = ({ isOpen, onClose, task, onUpdate, onDelete }) => {
                                     </div>
                                 )}
 
-                                {/* CANVAS SECTION - UPDATED FOR NEW CANVAS NOTE FEATURES */}
+                                {/* CANVAS SECTION */}
                                 {(viewMode === 'notes' || isSplitView || !hasPdf) && (
-                                    <div className={`flex-1 flex flex-col bg-white dark:bg-zinc-950 relative overflow-hidden ${isSplitView && hasPdf ? 'w-full lg:w-1/2' : 'w-full'}`}>
+                                    <div
+                                        className={`
+                                            flex flex-col bg-white dark:bg-zinc-950 relative overflow-hidden
+                                            ${isSplitView && hasPdf ? 'w-full lg:w-1/2 h-1/2 lg:h-full border-t lg:border-t-0 lg:border-l border-gray-200' : 'w-full h-full'}
+                                        `}
+                                    >
                                         <div className="h-12 border-b border-gray-100 dark:border-zinc-800 flex items-center justify-between px-4 bg-gray-50/30 dark:bg-zinc-900/30 shrink-0">
                                             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider ml-2">Page {currentPage + 1}</span>
                                             <div className="flex items-center gap-2 bg-white dark:bg-zinc-900 rounded-lg border border-gray-200 dark:border-zinc-800 p-1 shadow-sm">
@@ -262,20 +242,13 @@ const ViewTaskModal = ({ isOpen, onClose, task, onUpdate, onDelete }) => {
                                 )}
                             </div>
                         ) : (
-                            // IF PREVIEW MODE (DEFAULT) -> SHOW SIMPLE TEXT DETAILS
+                            // --- PREVIEW MODE ---
                             <div className="flex-1 overflow-y-auto p-6 md:p-8 max-w-4xl mx-auto w-full">
-                                {/* ... (Your existing code for details mode is unchanged) ... */}
                                 <div className="space-y-6">
                                     <div className="space-y-2">
                                         <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Description</label>
-                                        <textarea
-                                            value={description}
-                                            onChange={(e) => { setDescription(e.target.value); setIsEditing(true); }}
-                                            className="w-full min-h-[150px] bg-gray-50 dark:bg-zinc-900/50 rounded-xl p-4 text-sm text-gray-700 dark:text-zinc-300 leading-relaxed border border-transparent focus:bg-white dark:focus:bg-zinc-900 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/10 outline-none transition-all resize-none"
-                                            placeholder="No additional details."
-                                        />
+                                        <textarea value={description} onChange={(e) => { setDescription(e.target.value); setIsEditing(true); }} className="w-full min-h-[150px] bg-gray-50 dark:bg-zinc-900/50 rounded-xl p-4 text-sm text-gray-700 dark:text-zinc-300 leading-relaxed border border-transparent focus:bg-white dark:focus:bg-zinc-900 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/10 outline-none transition-all resize-none" placeholder="No additional details." />
                                     </div>
-
                                     <div className="space-y-3">
                                         <div className="flex items-center justify-between">
                                             <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Tasks</label>
@@ -295,7 +268,6 @@ const ViewTaskModal = ({ isOpen, onClose, task, onUpdate, onDelete }) => {
                                             <button onClick={addChecklistItem} className="p-2 bg-teal-600 text-white rounded-lg"><Plus size={16} /></button>
                                         </div>
                                     </div>
-
                                     {hasPdf && (
                                         <div className="pt-4 border-t border-gray-100 dark:border-zinc-800">
                                             <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 block">Attachment</label>
