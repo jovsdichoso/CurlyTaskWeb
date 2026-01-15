@@ -1,4 +1,4 @@
-import React, { useState } from 'react'; // 1. Ensure useState is imported
+import React, { useState } from 'react';
 import {
     Calendar, Trash2, Paperclip,
     Briefcase, User, GraduationCap, Layout,
@@ -7,7 +7,6 @@ import {
 } from 'lucide-react';
 
 const TaskCard = ({ task, onDelete, onClick, onColorChange }) => {
-    // 2. Add state for the color menu
     const [isColorMenuOpen, setIsColorMenuOpen] = useState(false);
 
     const colorVariants = {
@@ -64,8 +63,8 @@ const TaskCard = ({ task, onDelete, onClick, onColorChange }) => {
     return (
         <div
             onClick={onClick}
-            // Added z-0 to ensure stacking context allows the popup to show
-            className={`group relative rounded-[20px] p-4 border shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer z-0 ${cardTheme}`}
+            // Removed 'group' as we no longer need group-hover logic for visibility
+            className={`relative rounded-[20px] p-4 border shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer z-0 ${cardTheme}`}
         >
             {/* Header: Icon, Color Picker, & Delete */}
             <div className="flex justify-between items-start mb-3">
@@ -75,14 +74,19 @@ const TaskCard = ({ task, onDelete, onClick, onColorChange }) => {
 
                 <div className="flex gap-2 items-center">
 
-                    {/* --- FIXED: Color Picker UI (Click instead of Hover) --- */}
+                    {/* --- Color Picker UI --- */}
                     <div className="relative">
                         <button
                             onClick={(e) => {
-                                e.stopPropagation(); // Stop card click
-                                setIsColorMenuOpen(!isColorMenuOpen); // Toggle Menu
+                                e.stopPropagation();
+                                setIsColorMenuOpen(!isColorMenuOpen);
                             }}
-                            className={`p-1.5 rounded-lg transition-all ${isColorMenuOpen ? 'opacity-100 text-teal-600 bg-white dark:bg-zinc-800' : 'opacity-0 group-hover:opacity-100 text-gray-400 hover:text-teal-600 hover:bg-white dark:hover:bg-zinc-800'}`}
+                            // UPDATED: Removed opacity-0 and group-hover:opacity-100.
+                            // The button is now always visible (text-gray-400) and lights up on interaction.
+                            className={`p-1.5 rounded-lg transition-all ${isColorMenuOpen
+                                    ? 'text-teal-600 bg-white dark:bg-zinc-800 shadow-sm'
+                                    : 'text-gray-400 hover:text-teal-600 hover:bg-white dark:hover:bg-zinc-800'
+                                }`}
                         >
                             <Palette size={14} />
                         </button>
@@ -90,7 +94,6 @@ const TaskCard = ({ task, onDelete, onClick, onColorChange }) => {
                         {/* The Menu */}
                         {isColorMenuOpen && (
                             <>
-                                {/* Invisible Backdrop to close menu when clicking outside */}
                                 <div
                                     className="fixed inset-0 z-40 cursor-default"
                                     onClick={(e) => {
@@ -98,8 +101,6 @@ const TaskCard = ({ task, onDelete, onClick, onColorChange }) => {
                                         setIsColorMenuOpen(false);
                                     }}
                                 />
-
-                                {/* Dropdown Content */}
                                 <div className="absolute right-0 top-8 z-50 bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 p-2 rounded-xl shadow-2xl gap-1.5 min-w-[140px] flex flex-wrap justify-end animate-in fade-in zoom-in-95 duration-200">
                                     {Object.keys(colorVariants).map((colorKey) => (
                                         <button
@@ -107,7 +108,7 @@ const TaskCard = ({ task, onDelete, onClick, onColorChange }) => {
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 if (onColorChange) onColorChange(task.id, colorKey);
-                                                setIsColorMenuOpen(false); // Close after picking
+                                                setIsColorMenuOpen(false);
                                             }}
                                             className={`w-6 h-6 rounded-full border border-black/10 transition-transform hover:scale-110 active:scale-95 ${dotColors[colorKey]} ${task.color === colorKey ? 'ring-2 ring-offset-2 ring-gray-400 dark:ring-offset-zinc-900' : ''}`}
                                             title={colorKey}
@@ -129,7 +130,8 @@ const TaskCard = ({ task, onDelete, onClick, onColorChange }) => {
                             e.stopPropagation();
                             onDelete(task.id);
                         }}
-                        className="opacity-0 group-hover:opacity-100 p-1.5 text-gray-400 hover:text-red-500 hover:bg-white dark:hover:bg-zinc-800 rounded-lg transition-all"
+                        // UPDATED: Removed opacity-0. Now always visible as gray, turns red on tap/hover.
+                        className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-white dark:hover:bg-zinc-800 rounded-lg transition-all"
                     >
                         <Trash2 size={14} />
                     </button>
