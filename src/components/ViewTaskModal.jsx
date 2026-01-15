@@ -222,17 +222,29 @@ const ViewTaskModal = ({ isOpen, onClose, task, onUpdate, onDelete }) => {
                         // IF STUDY MODE IS ON -> SHOW COMPLEX CANVAS/PDF
                         isStudyMode ? (
                             <div className="flex-1 relative w-full h-full flex flex-row">
-                                {/* PDF */}
+                                {/* PDF SECTION - UPDATED FOR IPAD SCROLLING */}
                                 {hasPdf && (viewMode === 'pdf' || isSplitView) && (
-                                    <div className={`flex-1 bg-gray-100 dark:bg-zinc-900 relative border-r border-gray-200 dark:border-zinc-800 ${isSplitView ? 'w-1/2' : 'w-full'}`}>
+                                    <div
+                                        className={`flex-1 bg-gray-100 dark:bg-zinc-900 relative border-r border-gray-200 dark:border-zinc-800 overflow-y-auto touch-auto ${isSplitView ? 'w-full lg:w-1/2' : 'w-full'}`}
+                                        style={{ WebkitOverflowScrolling: 'touch' }} // iOS smooth scroll fix
+                                    >
                                         <div className="absolute top-4 right-4 z-10"><a href={task.pdfUrl} target="_blank" rel="noreferrer" className="bg-white dark:bg-black p-2 rounded-lg shadow-md text-gray-500 hover:text-teal-600 transition-colors block"><ExternalLink size={16} /></a></div>
-                                        <iframe src={`${task.pdfUrl}#toolbar=0`} className="w-full h-full border-none" title="PDF Preview" />
+
+                                        {/* Added wrapping div and updated iframe props */}
+                                        <div className="w-full h-full min-h-0 overflow-auto">
+                                            <iframe
+                                                src={`${task.pdfUrl}#toolbar=0`}
+                                                className="w-full h-full border-none"
+                                                title="PDF Preview"
+                                                scrolling="yes"
+                                            />
+                                        </div>
                                     </div>
                                 )}
 
-                                {/* CANVAS */}
+                                {/* CANVAS SECTION - UPDATED FOR NEW CANVAS NOTE FEATURES */}
                                 {(viewMode === 'notes' || isSplitView || !hasPdf) && (
-                                    <div className={`flex-1 flex flex-col bg-white dark:bg-zinc-950 relative ${isSplitView && hasPdf ? 'w-1/2' : 'w-full'}`}>
+                                    <div className={`flex-1 flex flex-col bg-white dark:bg-zinc-950 relative overflow-hidden ${isSplitView && hasPdf ? 'w-full lg:w-1/2' : 'w-full'}`}>
                                         <div className="h-12 border-b border-gray-100 dark:border-zinc-800 flex items-center justify-between px-4 bg-gray-50/30 dark:bg-zinc-900/30 shrink-0">
                                             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider ml-2">Page {currentPage + 1}</span>
                                             <div className="flex items-center gap-2 bg-white dark:bg-zinc-900 rounded-lg border border-gray-200 dark:border-zinc-800 p-1 shadow-sm">
@@ -241,7 +253,6 @@ const ViewTaskModal = ({ isOpen, onClose, task, onUpdate, onDelete }) => {
                                             </div>
                                         </div>
 
-                                        {/* FIX IS HERE: key={currentPage} */}
                                         <CanvasNote
                                             key={currentPage}
                                             image={notePages[currentPage]}
@@ -253,8 +264,8 @@ const ViewTaskModal = ({ isOpen, onClose, task, onUpdate, onDelete }) => {
                         ) : (
                             // IF PREVIEW MODE (DEFAULT) -> SHOW SIMPLE TEXT DETAILS
                             <div className="flex-1 overflow-y-auto p-6 md:p-8 max-w-4xl mx-auto w-full">
+                                {/* ... (Your existing code for details mode is unchanged) ... */}
                                 <div className="space-y-6">
-                                    {/* Text Description */}
                                     <div className="space-y-2">
                                         <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Description</label>
                                         <textarea
@@ -265,7 +276,6 @@ const ViewTaskModal = ({ isOpen, onClose, task, onUpdate, onDelete }) => {
                                         />
                                     </div>
 
-                                    {/* Checklist */}
                                     <div className="space-y-3">
                                         <div className="flex items-center justify-between">
                                             <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Tasks</label>
@@ -286,7 +296,6 @@ const ViewTaskModal = ({ isOpen, onClose, task, onUpdate, onDelete }) => {
                                         </div>
                                     </div>
 
-                                    {/* PDF Attachment Link (Preview Mode Only) */}
                                     {hasPdf && (
                                         <div className="pt-4 border-t border-gray-100 dark:border-zinc-800">
                                             <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 block">Attachment</label>

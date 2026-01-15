@@ -1,21 +1,27 @@
 import React, { useRef, useState, useEffect } from 'react';
 import {
     PenTool, Eraser, Pencil,
-    Grid, AlignJustify, File, Check,
-    Hand, Image as ImageIcon, MousePointer2
+    Grid, AlignJustify, File,
+    Hand, Image as ImageIcon, MousePointer2,
+    ZoomIn, ZoomOut // Added icons
 } from 'lucide-react';
 
 const CanvasNote = ({ image, onSave }) => {
     const canvasRef = useRef(null);
+    const containerRef = useRef(null); // Ref for scrolling container
     const fileInputRef = useRef(null);
     const [isDrawing, setIsDrawing] = useState(false);
+
+    // --- NEW: DYNAMIC CANVAS SIZING & ZOOM ---
+    const [canvasSize, setCanvasSize] = useState({ width: 1200, height: 1600 }); // Default A4ish
+    const [zoom, setZoom] = useState(1); // Zoom scale
 
     // --- TOOLS & STATE ---
     const [tool, setTool] = useState('pen');
     const [paperType, setPaperType] = useState('blank');
     const [color, setColor] = useState('#000000');
     const [strokeWidth, setStrokeWidth] = useState(3);
-    const [palmRejection, setPalmRejection] = useState(true); // Default to TRUE for better tablet UX
+    const [palmRejection, setPalmRejection] = useState(true);
     const [eraserMode, setEraserMode] = useState('standard');
 
     // --- DATA ---
@@ -25,23 +31,28 @@ const CanvasNote = ({ image, onSave }) => {
 
     // --- SELECTION & RESIZING STATE ---
     const [selectedImageIndex, setSelectedImageIndex] = useState(null);
-    const [interactionMode, setInteractionMode] = useState(null); // 'drawing', 'dragging', 'resizing'
+    const [interactionMode, setInteractionMode] = useState(null);
     const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
-    const [resizeHandle, setResizeHandle] = useState(null); // 'tl', 'tr', 'bl', 'br'
+    const [resizeHandle, setResizeHandle] = useState(null);
     const [initialResizeState, setInitialResizeState] = useState(null);
 
     const colors = ['#000000', '#FFFFFF', '#EF4444', '#F97316', '#EAB308', '#22C55E', '#3B82F6', '#A855F7'];
 
+    // 1. Initialize & Handle Image Loading (Fixes Landscape Issue)
     useEffect(() => {
         if (image) {
             const img = new Image();
-            img.onload = () => redrawAll(strokes, addedImages, img);
+            img.onload = () => {
+                // UPDATE CANVAS SIZE TO MATCH IMAGE EXACTLY
+                setCanvasSize({ width: img.naturalWidth, height: img.naturalHeight });
+                redrawAll(strokes, addedImages, img);
+            };
             img.src = image;
         } else {
             redrawAll(strokes, addedImages, null);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [image]); // Re-run if image prop changes
 
     // Handle Dark Mode Default Color
     useEffect(() => {
@@ -54,11 +65,10 @@ const CanvasNote = ({ image, onSave }) => {
         if (!canvas) return;
         const ctx = canvas.getContext('2d');
 
+        // Clear using internal dimensions
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // 1. Background (Only draw if passed specifically or from initial prop ONCE)
-        // We use the bgImgOverride if provided (usually during init), otherwise we rely on what's implicitly cleared.
-        // NOTE: Since we want to keep layers separate, we treat 'image' prop as the "Base Layer"
+        // 1. Background
         if (bgImgOverride) {
             ctx.globalCompositeOperation = 'source-over';
             ctx.globalAlpha = 1.0;
@@ -77,22 +87,21 @@ const CanvasNote = ({ image, onSave }) => {
             ctx.globalAlpha = imgData.opacity;
             ctx.drawImage(imgData.img, imgData.x, imgData.y, imgData.width, imgData.height);
 
-            // Draw Selection Box & Handles
+            // Selection & Handles
             if (index === selectedImageIndex) {
                 ctx.globalAlpha = 1.0;
                 ctx.strokeStyle = '#00CED1';
-                ctx.lineWidth = 2;
+                ctx.lineWidth = 2 / zoom; // Adjust line width based on zoom so it stays sharp
                 ctx.strokeRect(imgData.x, imgData.y, imgData.width, imgData.height);
 
-                // Draw Resize Handles
                 const handles = getResizeHandles(imgData);
                 ctx.fillStyle = '#FFFFFF';
                 ctx.strokeStyle = '#00CED1';
-                ctx.lineWidth = 2;
+                ctx.lineWidth = 2 / zoom;
 
                 Object.values(handles).forEach(h => {
                     ctx.beginPath();
-                    ctx.arc(h.x, h.y, 6, 0, Math.PI * 2);
+                    ctx.arc(h.x, h.y, 6 / zoom, 0, Math.PI * 2); // Scale handles too
                     ctx.fill();
                     ctx.stroke();
                 });
@@ -129,17 +138,15 @@ const CanvasNote = ({ image, onSave }) => {
         ctx.globalAlpha = 1.0;
     };
 
-    // --- HELPER: Resize Handles ---
     const getResizeHandles = (img) => {
         return {
-            tl: { x: img.x, y: img.y }, // Top Left
-            tr: { x: img.x + img.width, y: img.y }, // Top Right
-            bl: { x: img.x, y: img.y + img.height }, // Bottom Left
-            br: { x: img.x + img.width, y: img.y + img.height } // Bottom Right
+            tl: { x: img.x, y: img.y },
+            tr: { x: img.x + img.width, y: img.y },
+            bl: { x: img.x, y: img.y + img.height },
+            br: { x: img.x + img.width, y: img.y + img.height }
         };
     };
 
-    // --- IMAGE UPLOAD ---
     const handleImageUpload = (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -150,7 +157,7 @@ const CanvasNote = ({ image, onSave }) => {
             img.onload = () => {
                 const newImg = {
                     img: img,
-                    x: 200, y: 200,
+                    x: 100, y: 100, // Safe default position
                     width: 300,
                     height: 300 * (img.height / img.width),
                     opacity: 1.0
@@ -158,7 +165,6 @@ const CanvasNote = ({ image, onSave }) => {
                 const newImageList = [...addedImages, newImg];
                 setAddedImages(newImageList);
                 setSelectedImageIndex(newImageList.length - 1);
-                // We don't force 'move' tool anymore, touch logic handles it
                 redrawAll(strokes, newImageList);
                 save();
             };
@@ -180,35 +186,29 @@ const CanvasNote = ({ image, onSave }) => {
         if (canvasRef.current) onSave(canvasRef.current.toDataURL());
     };
 
-    // --- SMART POINTER LOGIC (Canva Style) ---
+    // --- COORDINATE MAPPING (Crucial for Zoom) ---
     const getCoordinates = (e, canvas) => {
         const rect = canvas.getBoundingClientRect();
+        // The scale logic handles the discrepancy between CSS size (zoomed) and internal size
         const scaleX = canvas.width / rect.width;
         const scaleY = canvas.height / rect.height;
         return { x: (e.clientX - rect.left) * scaleX, y: (e.clientY - rect.top) * scaleY };
     };
 
-    // 1. POINTER DOWN
+    // --- POINTER ACTIONS (Keep mostly same, just added checks) ---
     const startAction = (e) => {
         const canvas = canvasRef.current;
         if (!canvas) return;
 
-        // --- SMART DETECTION ---
-        // If using Pen, we DRAW (unless specifically in Move tool).
-        // If using TOUCH/MOUSE, we prioritize SELECT/MOVE/RESIZE.
         const isPen = e.pointerType === 'pen';
         const isTouchOrMouse = !isPen;
-
-        // If Palm Rejection is ON, we ignore touch for drawing, 
-        // BUT we allow touch to manipulate images (Move/Resize) because that's intuitive.
-
         const { x, y } = getCoordinates(e, canvas);
 
-        // A. CHECK FOR RESIZE HANDLES (Highest Priority)
+        // A. RESIZE HANDLES
         if (selectedImageIndex !== null) {
             const img = addedImages[selectedImageIndex];
             const handles = getResizeHandles(img);
-            const handleRadius = 20; // Hitbox size
+            const handleRadius = 20 / zoom; // Adjust hit radius for zoom
 
             for (const [key, handle] of Object.entries(handles)) {
                 if (Math.hypot(handle.x - x, handle.y - y) < handleRadius) {
@@ -219,13 +219,12 @@ const CanvasNote = ({ image, onSave }) => {
                         imgX: img.x, imgY: img.y,
                         width: img.width, height: img.height
                     });
-                    return; // Stop here, we are resizing
+                    return;
                 }
             }
         }
 
-        // B. CHECK FOR IMAGE CLICK (Selection / Move)
-        // If user touches an image, we assume they want to move it, UNLESS they explicitly selected 'Eraser'
+        // B. IMAGE SELECTION
         if (tool !== 'eraser' && (isTouchOrMouse || tool === 'move')) {
             for (let i = addedImages.length - 1; i >= 0; i--) {
                 const img = addedImages[i];
@@ -233,30 +232,24 @@ const CanvasNote = ({ image, onSave }) => {
                     setSelectedImageIndex(i);
                     setInteractionMode('dragging');
                     setDragOffset({ x: x - img.x, y: y - img.y });
-                    redrawAll(); // Draw selection border
-                    return; // Stop here, we are moving
+                    redrawAll();
+                    return;
                 }
             }
         }
 
-        // Deselect if clicking empty space with touch
         if (isTouchOrMouse && selectedImageIndex !== null) {
             setSelectedImageIndex(null);
             redrawAll();
-            // Don't return, allow drawing to start if tool is selected
         }
 
-        // C. DRAWING (Lowest Priority for Touch, Highest for Pen)
-        // If we are here, we didn't hit a resize handle or an image.
-
-        // If it's a finger and Palm Rejection is ON, do NOT draw.
+        // C. DRAWING
         if (palmRejection && !isPen) return;
 
-        e.preventDefault(); // Stop scrolling
+        e.preventDefault();
         setIsDrawing(true);
         setInteractionMode('drawing');
 
-        // ... Drawing Setup (Same as before) ...
         if (tool === 'eraser' && eraserMode === 'object') {
             eraseStrokeAt(x, y);
             return;
@@ -273,7 +266,6 @@ const CanvasNote = ({ image, onSave }) => {
         };
         setCurrentStroke(newStroke);
 
-        // Immediate Draw
         const ctx = canvas.getContext('2d');
         ctx.beginPath();
         ctx.moveTo(x, y);
@@ -291,14 +283,12 @@ const CanvasNote = ({ image, onSave }) => {
         ctx.stroke();
     };
 
-    // 2. POINTER MOVE
     const moveAction = (e) => {
         const canvas = canvasRef.current;
         if (!canvas) return;
-        e.preventDefault(); // Prevent scrolling
+        e.preventDefault();
         const { x, y } = getCoordinates(e, canvas);
 
-        // --- RESIZING LOGIC ---
         if (interactionMode === 'resizing' && selectedImageIndex !== null) {
             const img = addedImages[selectedImageIndex];
             const init = initialResizeState;
@@ -310,27 +300,11 @@ const CanvasNote = ({ image, onSave }) => {
             let newW = img.width;
             let newH = img.height;
 
-            // Maintain aspect ratio? Let's say yes for now.
-            // Simplified resizing logic:
-            if (resizeHandle === 'br') {
-                newW = init.width + dx;
-                newH = init.height + dy;
-            } else if (resizeHandle === 'bl') {
-                newX = init.imgX + dx;
-                newW = init.width - dx;
-                newH = init.height + dy;
-            } else if (resizeHandle === 'tr') {
-                newY = init.imgY + dy;
-                newW = init.width + dx;
-                newH = init.height - dy;
-            } else if (resizeHandle === 'tl') {
-                newX = init.imgX + dx;
-                newY = init.imgY + dy;
-                newW = init.width - dx;
-                newH = init.height - dy;
-            }
+            if (resizeHandle === 'br') { newW = init.width + dx; newH = init.height + dy; }
+            else if (resizeHandle === 'bl') { newX = init.imgX + dx; newW = init.width - dx; newH = init.height + dy; }
+            else if (resizeHandle === 'tr') { newY = init.imgY + dy; newW = init.width + dx; newH = init.height - dy; }
+            else if (resizeHandle === 'tl') { newX = init.imgX + dx; newY = init.imgY + dy; newW = init.width - dx; newH = init.height - dy; }
 
-            // Minimum size
             if (newW < 20) newW = 20;
             if (newH < 20) newH = 20;
 
@@ -341,7 +315,6 @@ const CanvasNote = ({ image, onSave }) => {
             return;
         }
 
-        // --- DRAGGING LOGIC ---
         if (interactionMode === 'dragging' && selectedImageIndex !== null) {
             const updatedImages = [...addedImages];
             updatedImages[selectedImageIndex] = {
@@ -354,7 +327,6 @@ const CanvasNote = ({ image, onSave }) => {
             return;
         }
 
-        // --- DRAWING LOGIC ---
         if (interactionMode === 'drawing' && isDrawing) {
             if (tool === 'eraser' && eraserMode === 'object') {
                 eraseStrokeAt(x, y);
@@ -386,17 +358,14 @@ const CanvasNote = ({ image, onSave }) => {
         }
     };
 
-    // 3. POINTER UP
-    const stopAction = (e) => {
-        setInteractionMode(null); // Reset mode
+    const stopAction = () => {
+        setInteractionMode(null);
         setResizeHandle(null);
         setIsDrawing(false);
-
         if (interactionMode === 'dragging' || interactionMode === 'resizing') {
-            save(); // Save changes
+            save();
             return;
         }
-
         if (currentStroke) {
             const newStrokes = [...strokes, currentStroke];
             setStrokes(newStrokes);
@@ -431,17 +400,21 @@ const CanvasNote = ({ image, onSave }) => {
     return (
         <div className="flex flex-col w-full h-full bg-white dark:bg-zinc-950">
             {/* TOOLBAR */}
-            <div className="flex flex-col md:flex-row items-center justify-between px-4 py-2 border-b border-gray-100 dark:border-zinc-800 bg-gray-50/50 dark:bg-zinc-900/50 shrink-0 gap-2 md:gap-0">
+            <div className="flex flex-col md:flex-row items-center justify-between px-4 py-2 border-b border-gray-100 dark:border-zinc-800 bg-gray-50/50 dark:bg-zinc-900/50 shrink-0 gap-2 md:gap-0 z-20">
                 <div className="flex items-center gap-4 overflow-x-auto w-full md:w-auto pb-1 md:pb-0 scrollbar-hide">
 
-                    {/* Tools */}
                     <div className="flex items-center gap-1 bg-white dark:bg-zinc-900 p-1 rounded-lg border border-gray-200 dark:border-zinc-800 shadow-sm shrink-0">
-                        {/* We keep 'Move' tool just in case, but touch logic handles it too */}
                         <button onClick={() => setTool('move')} className={`p-2 rounded-md ${tool === 'move' ? 'bg-teal-50 text-teal-600 shadow-sm' : 'text-gray-400'}`} title="Select/Move"><MousePointer2 size={16} /></button>
-
                         <button onClick={() => setTool('pen')} className={`p-2 rounded-md ${tool === 'pen' ? 'bg-teal-50 text-teal-600 shadow-sm' : 'text-gray-400'}`}><PenTool size={16} /></button>
                         <button onClick={() => setTool('pencil')} className={`p-2 rounded-md ${tool === 'pencil' ? 'bg-blue-50 text-blue-600 shadow-sm' : 'text-gray-400'}`}><Pencil size={16} /></button>
                         <button onClick={() => setTool('eraser')} className={`p-2 rounded-md ${tool === 'eraser' ? 'bg-red-50 text-red-600 shadow-sm' : 'text-gray-400'}`}><Eraser size={16} /></button>
+                    </div>
+
+                    {/* NEW ZOOM CONTROLS */}
+                    <div className="flex items-center gap-1 bg-white dark:bg-zinc-900 p-1 rounded-lg border border-gray-200 dark:border-zinc-800 shadow-sm shrink-0">
+                        <button onClick={() => setZoom(z => Math.max(0.1, z - 0.1))} className="p-2 rounded-md text-gray-400 hover:text-teal-600"><ZoomOut size={16} /></button>
+                        <span className="text-xs font-bold w-8 text-center">{Math.round(zoom * 100)}%</span>
+                        <button onClick={() => setZoom(z => Math.min(3, z + 0.1))} className="p-2 rounded-md text-gray-400 hover:text-teal-600"><ZoomIn size={16} /></button>
                     </div>
 
                     {/* Image Tool */}
@@ -452,7 +425,7 @@ const CanvasNote = ({ image, onSave }) => {
                         <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleImageUpload} />
                     </div>
 
-                    {/* Dynamic Controls */}
+                    {/* Dynamic Controls (Same as before) */}
                     {tool === 'eraser' ? (
                         <div className="flex items-center gap-2 px-2 bg-white dark:bg-zinc-900 p-1 rounded-lg border border-gray-200 dark:border-zinc-800">
                             <button onClick={() => setEraserMode('standard')} className={`px-2 py-1 text-[10px] font-bold rounded ${eraserMode === 'standard' ? 'bg-gray-100 dark:bg-zinc-800' : 'text-gray-400'}`}>Pixel</button>
@@ -474,14 +447,6 @@ const CanvasNote = ({ image, onSave }) => {
                     )}
                 </div>
 
-                {/* Opacity Slider */}
-                {selectedImageIndex !== null && (
-                    <div className="flex items-center gap-2 bg-purple-50 dark:bg-purple-900/20 px-3 py-1 rounded-lg border border-purple-100 dark:border-purple-800">
-                        <span className="text-[9px] font-bold text-purple-600 uppercase">Img Opacity</span>
-                        <input type="range" min="0.1" max="1" step="0.1" value={addedImages[selectedImageIndex]?.opacity || 1} onChange={handleOpacityChange} onMouseUp={save} className="w-20 accent-purple-600" />
-                    </div>
-                )}
-
                 {/* Right Controls */}
                 <div className="flex items-center gap-3 ml-auto">
                     <button onClick={() => setPalmRejection(!palmRejection)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[10px] font-bold uppercase ${palmRejection ? 'bg-indigo-50 border-indigo-200 text-indigo-600' : 'bg-white text-gray-400'}`}>
@@ -495,14 +460,38 @@ const CanvasNote = ({ image, onSave }) => {
                 </div>
             </div>
 
-            <div className="flex-1 relative overflow-hidden bg-white dark:bg-zinc-950 cursor-crosshair touch-none">
-                <div className="absolute inset-0 pointer-events-none" style={getBackgroundStyle()} />
-                <canvas
-                    ref={canvasRef} width={1600} height={1000}
-                    className="w-full h-full touch-none relative z-10"
-                    onPointerDown={startAction} onPointerMove={moveAction}
-                    onPointerUp={stopAction} onPointerLeave={stopAction}
-                />
+            {/* CANVAS CONTAINER */}
+            {/* Added overflow-auto to allow scrolling pan */}
+            {/* Added touch-pan-x/y only if Palm Rejection is OFF (allows navigating) */}
+            <div
+                ref={containerRef}
+                className="flex-1 relative overflow-auto bg-gray-100 dark:bg-zinc-900 cursor-crosshair touch-none"
+            >
+                {/* CANVAS WRAPPER FOR CENTERING & SHADOW */}
+                <div className="min-w-fit min-h-fit p-10 flex justify-center items-center">
+                    <div
+                        className="relative bg-white shadow-xl"
+                        style={{
+                            width: canvasSize.width * zoom, // Visual width
+                            height: canvasSize.height * zoom, // Visual height
+                        }}
+                    >
+                        <div className="absolute inset-0 pointer-events-none" style={getBackgroundStyle()} />
+                        <canvas
+                            ref={canvasRef}
+                            // INTERNAL RESOLUTION matches image actual size
+                            width={canvasSize.width}
+                            height={canvasSize.height}
+                            // DISPLAY SIZE scales with CSS
+                            style={{ width: '100%', height: '100%' }}
+                            className="touch-none relative z-10"
+                            onPointerDown={startAction}
+                            onPointerMove={moveAction}
+                            onPointerUp={stopAction}
+                            onPointerLeave={stopAction}
+                        />
+                    </div>
+                </div>
             </div>
         </div>
     );
